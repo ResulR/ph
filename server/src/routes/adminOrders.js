@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const { pool } = require("../db/pool");
 const { requireAdminAuth } = require("../middlewares/requireAdminAuth");
+const { requireAdminCsrf } = require("../middlewares/requireAdminCsrf");
 
 const adminOrdersRouter = express.Router();
 
@@ -168,7 +169,7 @@ const updateOrderStatusSchema = z.object({
   note: z.string().trim().optional().default(""),
 });
 
-adminOrdersRouter.patch("/orders/:id/status", requireAdminAuth, async (req, res) => {
+adminOrdersRouter.patch("/orders/:id/status", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   const client = await pool.connect();
 
   try {

@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { formatPrice, SIZE_LABELS } from '@/config/menu';
 import type { Category, Product, PastaVariant, PaniniVariant } from '@/types';
 import { Button } from '@/components/ui/button';
+import { adminFetch } from '@/lib/adminCsrf';
 
 interface AdminVariantBase {
   id: string;
@@ -272,7 +273,7 @@ export default function AdminProducts() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/admin/products/${id}/active`, {
+      const response = await adminFetch(`/api/admin/products/${id}/active`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -312,7 +313,7 @@ export default function AdminProducts() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/admin/products/${id}/availability`, {
+      const response = await adminFetch(`/api/admin/products/${id}/availability`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -380,7 +381,7 @@ export default function AdminProducts() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/admin/products/${editingProductId}`, {
+      const response = await adminFetch(`/api/admin/products/${editingProductId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -467,7 +468,7 @@ export default function AdminProducts() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/admin/products/${editingProductId}/variants`, {
+      const response = await adminFetch(`/api/admin/products/${editingProductId}/variants`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -554,7 +555,7 @@ export default function AdminProducts() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch('/api/admin/products', {
+      const response = await adminFetch('/api/admin/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -617,7 +618,7 @@ export default function AdminProducts() {
     setError(null);
     setSuccessMessage(null);
 
-    const response = await fetch(`/api/admin/products/${id}`, {
+    const response = await adminFetch(`/api/admin/products/${id}`, {
       method: 'DELETE',
       credentials: 'include',
     });

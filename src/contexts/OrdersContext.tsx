@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Order, OrderLine, OrderStatus } from '@/types';
+import { adminFetch } from '@/lib/adminCsrf';
 
 interface BackendAdminOrderItem {
   id: string;
@@ -272,7 +273,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
 
     const backendStatus = mapFrontendStatusToBackend(status);
 
-    const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
+    const response = await adminFetch(`/api/admin/orders/${encodeURIComponent(orderId)}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

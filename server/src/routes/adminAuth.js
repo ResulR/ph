@@ -6,6 +6,16 @@ const { z } = require("zod");
 const { pool } = require("../db/pool");
 const { env } = require("../config/env");
 const { requireAdminAuth } = require("../middlewares/requireAdminAuth");
+const { requireAdminCsrf } = require("../middlewares/requireAdminCsrf");
+const {
+  ADMIN_CSRF_COOKIE_NAME,
+  setAdminCsrfCookie,
+  clearAdminCsrfCookie,
+} = require("../lib/adminCsrf");
+const {
+  setAdminAuthCookie,
+  clearAdminAuthCookie,
+} = require("../lib/adminAuthCookie");
 
 const adminAuthRouter = express.Router();
 const isProduction = env.nodeEnv === "production";
@@ -26,7 +36,27 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-adminAuthRouter.post("/auth/login", adminLoginRateLimit, async (req, res) => {
+adminAuthRouter.get("/auth/csrf", (req, res) => {
+  const existingToken = req.cookies?.[ADMIN_CSRF_COOKIE_NAME];
+  const token = existingToken || setAdminCsrfCookie(res);
+
+  if (existingToken) {
+    res.cookie(ADMIN_CSRF_COOKIE_NAME, existingToken, {
+      httpOnly: false,
+      secure: isProduction,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
+  }
+
+  return res.status(200).json({
+    ok: true,
+    csrfToken: token,
+  });
+});
+
+adminAuthRouter.post("/auth/login", adminLoginRateLimit, requireAdminCsrf, async (req, res) => {
   try {
     if (!env.jwtSecret) {
       return res.status(500).json({
@@ -64,60 +94,56 @@ adminAuthRouter.post("/auth/login", adminLoginRateLimit, async (req, res) => {
       });
     }
 
-const admin = result.rows[0];
-const adminId = Number(admin.id);
+    const admin = result.rows[0];
+    const adminId = Number(admin.id);
 
-if (!admin.is_active) {
-  return res.status(403).json({
-    ok: false,
-    message: "Ce compte admin est désactivé.",
-  });
-}
+    if (!admin.is_active) {
+      return res.status(403).json({
+        ok: false,
+        message: "Ce compte admin est désactivé.",
+      });
+    }
 
-const passwordMatches = await bcrypt.compare(password, admin.password_hash);
+    const passwordMatches = await bcrypt.compare(password, admin.password_hash);
 
-if (!passwordMatches) {
-  return res.status(401).json({
-    ok: false,
-    message: "Email ou mot de passe incorrect.",
-  });
-}
+    if (!passwordMatches) {
+      return res.status(401).json({
+        ok: false,
+        message: "Email ou mot de passe incorrect.",
+      });
+    }
 
-const token = jwt.sign(
-  {
-    sub: String(adminId),
-    role: "admin",
-    email: admin.email,
-  },
-  env.jwtSecret,
-  { expiresIn: "7d" }
-);
+    const token = jwt.sign(
+      {
+        sub: String(adminId),
+        role: "admin",
+        email: admin.email,
+      },
+      env.jwtSecret,
+      { expiresIn: "7d" }
+    );
 
-await pool.query(
-  `
-    UPDATE admins
-    SET last_login_at = NOW(), updated_at = NOW()
-    WHERE id = $1
-  `,
-  [adminId]
-);
+    await pool.query(
+      `
+        UPDATE admins
+        SET last_login_at = NOW(), updated_at = NOW()
+        WHERE id = $1
+      `,
+      [adminId]
+    );
 
-res.cookie("admin_token", token, {
-  httpOnly: true,
-  secure: isProduction,
-  sameSite: "lax",
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-  path: "/",
-});
+    setAdminAuthCookie(res, token);
 
-return res.status(200).json({
-  ok: true,
-  admin: {
-    id: adminId,
-    email: admin.email,
-    fullName: admin.full_name,
-  },
-});
+    setAdminCsrfCookie(res);
+
+    return res.status(200).json({
+      ok: true,
+      admin: {
+        id: adminId,
+        email: admin.email,
+        fullName: admin.full_name,
+      },
+    });
   } catch (error) {
     console.error("Admin login error:", error);
     return res.status(500).json({
@@ -209,14 +235,10 @@ adminAuthRouter.get("/auth/me", async (req, res) => {
   }
 });
 
-adminAuthRouter.post("/auth/logout", async (_req, res) => {
+adminAuthRouter.post("/auth/logout", requireAdminAuth, requireAdminCsrf, async (_req, res) => {
   try {
-    res.clearCookie("admin_token", {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "lax",
-      path: "/",
-    });
+    clearAdminAuthCookie(res);
+    clearAdminCsrfCookie(res);
 
     return res.status(200).json({
       ok: true,

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { adminFetch } from '@/lib/adminCsrf';
 
 interface SiteSettingsForm {
   restaurantName: string;
@@ -96,7 +97,7 @@ export default function AdminSettings() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch('/api/admin/settings', {
+      const response = await adminFetch('/api/admin/settings', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

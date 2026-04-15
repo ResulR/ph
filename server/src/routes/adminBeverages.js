@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const { pool } = require("../db/pool");
 const { requireAdminAuth } = require("../middlewares/requireAdminAuth");
+const { requireAdminCsrf } = require("../middlewares/requireAdminCsrf");
 
 const adminBeveragesRouter = express.Router();
 
@@ -76,7 +77,7 @@ adminBeveragesRouter.get("/beverages", requireAdminAuth, async (_req, res) => {
   }
 });
 
-adminBeveragesRouter.patch("/beverages/:id/active", requireAdminAuth, async (req, res) => {
+adminBeveragesRouter.patch("/beverages/:id/active", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const beverageId = Number(req.params.id);
 
@@ -130,7 +131,7 @@ adminBeveragesRouter.patch("/beverages/:id/active", requireAdminAuth, async (req
   }
 });
 
-adminBeveragesRouter.patch("/beverages/:id", requireAdminAuth, async (req, res) => {
+adminBeveragesRouter.patch("/beverages/:id", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const beverageId = Number(req.params.id);
 
@@ -205,7 +206,7 @@ adminBeveragesRouter.patch("/beverages/:id", requireAdminAuth, async (req, res) 
   }
 });
 
-adminBeveragesRouter.post("/beverages", requireAdminAuth, async (req, res) => {
+adminBeveragesRouter.post("/beverages", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -318,7 +319,7 @@ adminBeveragesRouter.post("/beverages", requireAdminAuth, async (req, res) => {
   }
 });
 
-adminBeveragesRouter.delete("/beverages/:id", requireAdminAuth, async (req, res) => {
+adminBeveragesRouter.delete("/beverages/:id", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const beverageId = Number(req.params.id);
 

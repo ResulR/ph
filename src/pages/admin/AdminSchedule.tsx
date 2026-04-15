@@ -3,6 +3,7 @@ import type { DaySchedule, ExceptionalClosure, ScheduleOverride } from '@/types'
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2 } from 'lucide-react';
+import { adminFetch } from '@/lib/adminCsrf';
 
 const DAY_LABELS: Record<string, string> = {
   lundi: 'Lundi',
@@ -128,7 +129,7 @@ export default function AdminSchedule() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch('/api/admin/schedule/opening-hours', {
+      const response = await adminFetch('/api/admin/schedule/opening-hours', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -165,7 +166,7 @@ export default function AdminSchedule() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch('/api/admin/schedule/closures', {
+      const response = await adminFetch('/api/admin/schedule/closures', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -212,7 +213,7 @@ export default function AdminSchedule() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch('/api/admin/schedule/overrides', {
+      const response = await adminFetch('/api/admin/schedule/overrides', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +268,7 @@ export default function AdminSchedule() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/admin/schedule/closures/${closure.id}`, {
+      const response = await adminFetch(`/api/admin/schedule/closures/${closure.id}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -303,7 +304,7 @@ export default function AdminSchedule() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/admin/schedule/overrides/${override.id}`, {
+      const response = await adminFetch(`/api/admin/schedule/overrides/${override.id}`, {
         method: 'DELETE',
         credentials: 'include',
       });

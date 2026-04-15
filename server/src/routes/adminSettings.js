@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const { pool } = require("../db/pool");
 const { requireAdminAuth } = require("../middlewares/requireAdminAuth");
+const { requireAdminCsrf } = require("../middlewares/requireAdminCsrf");
 
 const adminSettingsRouter = express.Router();
 
@@ -71,7 +72,7 @@ adminSettingsRouter.get("/settings", requireAdminAuth, async (_req, res) => {
   }
 });
 
-adminSettingsRouter.patch("/settings", requireAdminAuth, async (req, res) => {
+adminSettingsRouter.patch("/settings", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const parsed = updateSiteSettingsSchema.safeParse(req.body);
 
