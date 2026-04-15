@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Clock, MapPin, Flame } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Clock, Flame, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ClientLayout from '@/components/client/ClientLayout';
 import { fetchPublicMenu, formatPriceFromCents } from '@/lib/menu-api';
+import paniniImage from '@/assets/home/panini.png';
+import ravierBoloImage from '@/assets/home/ravier_bolo.png';
+import ravierCremeImage from '@/assets/home/ravier_creme.png';
+import ravierOrangeImage from '@/assets/home/ravier_orange.png';
 
 interface FeaturedProductCard {
   id: string;
@@ -26,6 +30,17 @@ export default function HomePage() {
   const [deliveryFeeCents, setDeliveryFeeCents] = useState(500);
   const [openingLabel, setOpeningLabel] = useState('20h – 01h');
   const [loading, setLoading] = useState(true);
+  const heroSlides = useMemo(
+    () => [
+      { id: 'bolo', src: ravierBoloImage, alt: 'Pâtes bolognaise en ravier' },
+      { id: 'creme', src: ravierCremeImage, alt: 'Pâtes sauce crémeuse en ravier' },
+      { id: 'orange', src: ravierOrangeImage, alt: 'Pâtes gratinées en ravier' },
+      { id: 'panini', src: paniniImage, alt: 'Panini grillé' },
+    ],
+    [],
+  );
+
+  const [activeSlide, setActiveSlide] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -89,10 +104,28 @@ export default function HomePage() {
     };
   }, []);
 
+    useEffect(() => {
+    const interval = window.setInterval(() => {
+      setActiveSlide((current) => (current + 1) % heroSlides.length);
+    }, 4200);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [heroSlides.length]);
+
   const deliveryFeeLabel = useMemo(
     () => formatPriceFromCents(deliveryFeeCents),
     [deliveryFeeCents],
   );
+
+    function goToPreviousSlide() {
+    setActiveSlide((current) => (current === 0 ? heroSlides.length - 1 : current - 1));
+  }
+
+  function goToNextSlide() {
+    setActiveSlide((current) => (current + 1) % heroSlides.length);
+  }
 
   return (
     <ClientLayout>
@@ -126,7 +159,73 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-16 md:py-20 section-warm">
+      <section className="pb-4 md:pb-8 section-warm">
+        <div className="container">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-4 text-center">
+              <p className="text-xs sm:text-sm uppercase tracking-[0.22em] text-primary/70">
+                Un aperçu de nos incontournables
+              </p>
+            </div>
+
+            <div className="relative mx-auto overflow-hidden rounded-[24px] border border-border/40 bg-card/50 shadow-[0_16px_48px_rgba(0,0,0,0.28)]">
+              <div className="relative aspect-[16/10] sm:aspect-[16/9] md:aspect-[16/8]">
+                {heroSlides.map((slide, index) => (
+                  <div
+                    key={slide.id}
+                    className={`absolute inset-0 transition-opacity duration-700 ${
+                      index === activeSlide ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    }`}
+                  >
+                    <img
+                      src={slide.src}
+                      alt={slide.alt}
+                      className={`h-full w-full object-cover object-center transition-transform duration-[4500ms] ${
+                        index === activeSlide ? 'scale-[1.02]' : 'scale-100'
+                      }`}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/20 via-transparent to-transparent" />
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={goToPreviousSlide}
+                  className="absolute left-3 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white backdrop-blur-sm transition hover:bg-black/50 md:flex"
+                  aria-label="Image précédente"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToNextSlide}
+                  className="absolute right-3 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white backdrop-blur-sm transition hover:bg-black/50 md:flex"
+                  aria-label="Image suivante"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+
+                <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
+                  {heroSlides.map((slide, index) => (
+                    <button
+                      key={slide.id}
+                      type="button"
+                      onClick={() => setActiveSlide(index)}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        index === activeSlide ? 'w-7 bg-primary' : 'w-2 bg-white/45 hover:bg-white/70'
+                      }`}
+                      aria-label={`Afficher l’image ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 md:py-20 section-warm"> 
         <div className="container">
           <div className="text-center">
             <h2 className="font-display text-2xl font-semibold md:text-3xl">Nos populaires</h2>
