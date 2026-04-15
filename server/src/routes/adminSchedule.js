@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const { pool } = require("../db/pool");
 const { requireAdminAuth } = require("../middlewares/requireAdminAuth");
+const { requireAdminCsrf } = require("../middlewares/requireAdminCsrf");
 
 const adminScheduleRouter = express.Router();
 
@@ -131,7 +132,7 @@ adminScheduleRouter.get("/schedule", requireAdminAuth, async (_req, res) => {
   }
 });
 
-adminScheduleRouter.patch("/schedule/opening-hours", requireAdminAuth, async (req, res) => {
+adminScheduleRouter.patch("/schedule/opening-hours", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -237,7 +238,7 @@ adminScheduleRouter.patch("/schedule/opening-hours", requireAdminAuth, async (re
   }
 });
 
-adminScheduleRouter.post("/schedule/closures", requireAdminAuth, async (req, res) => {
+adminScheduleRouter.post("/schedule/closures", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const parsed = createExceptionalClosureSchema.safeParse(req.body);
 
@@ -290,7 +291,7 @@ adminScheduleRouter.post("/schedule/closures", requireAdminAuth, async (req, res
   }
 });
 
-adminScheduleRouter.post("/schedule/overrides", requireAdminAuth, async (req, res) => {
+adminScheduleRouter.post("/schedule/overrides", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const parsed = createScheduleOverrideSchema.safeParse(req.body);
 
@@ -368,7 +369,7 @@ adminScheduleRouter.post("/schedule/overrides", requireAdminAuth, async (req, re
   }
 });
 
-adminScheduleRouter.delete("/schedule/closures/:id", requireAdminAuth, async (req, res) => {
+adminScheduleRouter.delete("/schedule/closures/:id", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const closureId = Number(req.params.id);
 
@@ -411,7 +412,7 @@ adminScheduleRouter.delete("/schedule/closures/:id", requireAdminAuth, async (re
   }
 });
 
-adminScheduleRouter.delete("/schedule/overrides/:id", requireAdminAuth, async (req, res) => {
+adminScheduleRouter.delete("/schedule/overrides/:id", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const overrideId = Number(req.params.id);
 

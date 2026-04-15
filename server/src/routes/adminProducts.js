@@ -2,7 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const { pool } = require("../db/pool");
 const { requireAdminAuth } = require("../middlewares/requireAdminAuth");
-
+const { requireAdminCsrf } = require("../middlewares/requireAdminCsrf");
 const adminProductsRouter = express.Router();
 
 function slugifyProductName(value) {
@@ -138,7 +138,7 @@ const updateProductActiveSchema = z.object({
   active: z.boolean(),
 });
 
-adminProductsRouter.patch("/products/:id/active", requireAdminAuth, async (req, res) => {
+adminProductsRouter.patch("/products/:id/active", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const productId = Number(req.params.id);
 
@@ -198,7 +198,7 @@ const updateProductAvailabilitySchema = z.object({
   available: z.boolean(),
 });
 
-adminProductsRouter.patch("/products/:id/availability", requireAdminAuth, async (req, res) => {
+adminProductsRouter.patch("/products/:id/availability", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const productId = Number(req.params.id);
 
@@ -261,7 +261,7 @@ const updateProductDetailsSchema = z.object({
   featured: z.boolean(),
 });
 
-adminProductsRouter.patch("/products/:id", requireAdminAuth, async (req, res) => {
+adminProductsRouter.patch("/products/:id", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const productId = Number(req.params.id);
 
@@ -347,7 +347,7 @@ const updateProductVariantsSchema = z.object({
   ).min(1),
 });
 
-adminProductsRouter.patch("/products/:id/variants", requireAdminAuth, async (req, res) => {
+adminProductsRouter.patch("/products/:id/variants", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -477,7 +477,7 @@ adminProductsRouter.patch("/products/:id/variants", requireAdminAuth, async (req
   }
 });
 
-adminProductsRouter.post("/products", requireAdminAuth, async (req, res) => {
+adminProductsRouter.post("/products", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -730,7 +730,7 @@ adminProductsRouter.post("/products", requireAdminAuth, async (req, res) => {
   }
 });
 
-adminProductsRouter.delete("/products/:id", requireAdminAuth, async (req, res) => {
+adminProductsRouter.delete("/products/:id", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   const client = await pool.connect();
 
   try {

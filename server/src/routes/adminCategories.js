@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const { pool } = require("../db/pool");
 const { requireAdminAuth } = require("../middlewares/requireAdminAuth");
+const { requireAdminCsrf } = require("../middlewares/requireAdminCsrf");  
 
 const adminCategoriesRouter = express.Router();
 
@@ -43,7 +44,7 @@ adminCategoriesRouter.get("/categories", requireAdminAuth, async (_req, res) => 
   }
 });
 
-adminCategoriesRouter.patch("/categories/:id/active", requireAdminAuth, async (req, res) => {
+adminCategoriesRouter.patch("/categories/:id/active", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const categoryId = Number(req.params.id);
 

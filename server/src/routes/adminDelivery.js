@@ -2,6 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const { pool } = require("../db/pool");
 const { requireAdminAuth } = require("../middlewares/requireAdminAuth");
+const { requireAdminCsrf } = require("../middlewares/requireAdminCsrf");
 
 const adminDeliveryRouter = express.Router();
 
@@ -59,7 +60,7 @@ adminDeliveryRouter.get("/delivery", requireAdminAuth, async (_req, res) => {
   }
 });
 
-adminDeliveryRouter.patch("/delivery", requireAdminAuth, async (req, res) => {
+adminDeliveryRouter.patch("/delivery", requireAdminAuth, requireAdminCsrf, async (req, res) => {
   try {
     const parsed = updateDeliverySettingsSchema.safeParse(req.body);
 

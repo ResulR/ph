@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, ClipboardList, Package, Tag, Coffee, Clock, Truck, Settings, Menu, X, LogOut } from 'lucide-react';
+import { adminFetch } from '@/lib/adminCsrf';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -23,7 +24,7 @@ export default function AdminLayout() {
     try {
       setLogoutLoading(true);
 
-      await fetch('/api/admin/auth/logout', {
+      await adminFetch('/api/admin/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });

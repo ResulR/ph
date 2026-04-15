@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Category } from '@/types';
 import { Button } from '@/components/ui/button';
+import { adminFetch } from '@/lib/adminCsrf';
 
 interface AdminCategoriesResponse {
   ok: boolean;
@@ -62,7 +63,7 @@ export default function AdminCategories() {
       setTogglingCategoryId(category.id);
       setError(null);
 
-      const response = await fetch(`/api/admin/categories/${category.id}/active`, {
+      const response = await adminFetch(`/api/admin/categories/${category.id}/active`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

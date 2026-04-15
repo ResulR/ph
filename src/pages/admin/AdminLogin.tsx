@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { adminFetch } from '@/lib/adminCsrf';
 
 interface LoginResponse {
   ok: boolean;
@@ -26,7 +27,7 @@ export default function AdminLogin() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/admin/auth/login', {
+      const response = await adminFetch('/api/admin/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

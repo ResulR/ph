@@ -3,6 +3,7 @@ import type { DeliverySettings } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { adminFetch } from '@/lib/adminCsrf';
 
 interface AdminDeliveryResponse {
   ok: boolean;
@@ -81,7 +82,7 @@ export default function AdminDelivery() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch('/api/admin/delivery', {
+      const response = await adminFetch('/api/admin/delivery', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

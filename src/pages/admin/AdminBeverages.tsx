@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { adminFetch } from '@/lib/adminCsrf';
 
 interface AdminBeverageItem {
   id: string;
@@ -153,7 +154,7 @@ export default function AdminBeverages() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/admin/beverages/${id}/active`, {
+      const response = await adminFetch(`/api/admin/beverages/${id}/active`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -210,7 +211,7 @@ export default function AdminBeverages() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/admin/beverages/${editingBeverageId}`, {
+      const response = await adminFetch(`/api/admin/beverages/${editingBeverageId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -271,7 +272,7 @@ export default function AdminBeverages() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch('/api/admin/beverages', {
+      const response = await adminFetch('/api/admin/beverages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -325,7 +326,7 @@ export default function AdminBeverages() {
       setError(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/admin/beverages/${id}`, {
+      const response = await adminFetch(`/api/admin/beverages/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       });
