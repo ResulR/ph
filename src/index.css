@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 20 14% 8%;
+    --foreground: 38 30% 92%;
+
+    --card: 20 12% 12%;
+    --card-foreground: 38 30% 92%;
+
+    --popover: 20 12% 10%;
+    --popover-foreground: 38 30% 92%;
+
+    --primary: 38 90% 55%;
+    --primary-foreground: 20 14% 8%;
+
+    --secondary: 20 10% 18%;
+    --secondary-foreground: 38 20% 85%;
+
+    --muted: 20 8% 16%;
+    --muted-foreground: 30 10% 55%;
+
+    --accent: 30 80% 50%;
+    --accent-foreground: 20 14% 8%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 20 10% 20%;
+    --input: 20 10% 20%;
+    --ring: 38 90% 55%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 20 12% 10%;
+    --sidebar-foreground: 38 20% 85%;
+    --sidebar-primary: 38 90% 55%;
+    --sidebar-primary-foreground: 20 14% 8%;
+    --sidebar-accent: 20 10% 16%;
+    --sidebar-accent-foreground: 38 20% 85%;
+    --sidebar-border: 20 10% 20%;
+    --sidebar-ring: 38 90% 55%;
+
+    /* Custom tokens */
+    --warm-glow: 38 90% 55%;
+    --warm-glow-muted: 30 60% 40%;
+    --surface-elevated: 20 12% 14%;
+    --gold: 43 96% 56%;
+    --gold-muted: 43 50% 35%;
+
+    /* Fonts */
+    --font-display: 'Playfair Display', serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer utilities {
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--gold)));
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3), 0 0 60px hsl(var(--primary) / 0.1);
+  }
+
+  .glow-primary-sm {
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.2);
+  }
+
+  .surface-elevated {
+    background-color: hsl(var(--surface-elevated));
+  }
+
+  .card-premium {
+    @apply rounded-xl border border-border/50;
+    background: linear-gradient(145deg, hsl(var(--card)), hsl(var(--surface-elevated)));
+  }
+}
