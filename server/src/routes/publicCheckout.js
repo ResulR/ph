@@ -29,7 +29,11 @@ const validateCheckoutSchema = z.object({
 
 const customerSchema = z.object({
   nom: z.string().trim().min(1, "Le nom est obligatoire."),
-  telephone: z.string().trim().min(1, "Le téléphone est obligatoire."),
+  telephone: z
+    .string()
+    .trim()
+    .min(1, "Le téléphone est obligatoire.")
+    .refine(isValidPhoneNumber, "Numéro de téléphone invalide."),
   email: z.string().trim().email("Email invalide."),
   adresse: z.string().trim().optional().default(""),
   commune: z.string().trim().optional().default(""),
@@ -43,6 +47,22 @@ const createOrderSchema = z.object({
   items: z.array(cartItemSchema).min(1, "Le panier ne peut pas être vide."),
   customer: customerSchema,
 });
+
+function normalizePhoneNumber(value) {
+  return String(value)
+    .trim()
+    .replace(/[()./\-\s]+/g, "");
+}
+
+function isValidPhoneNumber(value) {
+  const normalized = normalizePhoneNumber(value);
+
+  if (!normalized) {
+    return false;
+  }
+
+  return /^\+?\d{8,15}$/.test(normalized);
+}
 
 function toPositiveInteger(value) {
   const normalized = Number(value);
@@ -420,7 +440,7 @@ async function createOrderRecord({ client, mode, customer, validatedCart }) {
       orderNumber,
       fulfillmentMethod,
       customer.nom.trim(),
-      customer.telephone.trim(),
+      normalizePhoneNumber(customer.telephone),
       customer.email.trim(),
       mode === "livraison" ? customer.adresse.trim() : null,
       mode === "livraison" ? customer.codePostal.trim() : null,
