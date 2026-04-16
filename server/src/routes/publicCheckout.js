@@ -3,6 +3,7 @@ const { z } = require("zod");
 const { pool } = require("../db/pool");
 const { env } = require("../config/env");
 const { getStripe } = require("../lib/stripe");
+const { sendEmail } = require("../lib/email");
 
 const publicCheckoutRouter = express.Router();
 
@@ -603,6 +604,212 @@ function buildStripeLineItems(validatedCart) {
   return lineItems;
 }
 
+async function getOrderEmailPayload({ client, orderId }) {
+  const orderResult = await client.query(
+    `
+      SELECT
+        id,
+        order_number,
+        fulfillment_method,
+        customer_name,
+        customer_phone,
+        customer_email,
+        delivery_address_line1,
+        delivery_postal_code,
+        delivery_city,
+        customer_note,
+        subtotal_cents,
+        delivery_fee_cents,
+        total_cents,
+        currency,
+        created_at
+      FROM orders
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [orderId]
+  );
+
+  if (orderResult.rowCount === 0) {
+    throw new Error(`Order ${orderId} not found for email payload.`);
+  }
+
+  const itemsResult = await client.query(
+    `
+      SELECT
+        line_number,
+        item_type,
+        product_name_snapshot,
+        variant_name_snapshot,
+        beverage_name_snapshot,
+        unit_price_cents,
+        quantity,
+        line_total_cents
+      FROM order_items
+      WHERE order_id = $1
+      ORDER BY line_number ASC
+    `,
+    [orderId]
+  );
+
+  return {
+    order: orderResult.rows[0],
+    items: itemsResult.rows,
+  };
+}
+
+function formatPriceFromCents(cents, currency = "EUR") {
+  return new Intl.NumberFormat("fr-BE", {
+    style: "currency",
+    currency,
+  }).format(Number(cents) / 100);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function buildOrderConfirmationEmailHtml({ order, items }) {
+  const modeLabel =
+    order.fulfillment_method === "delivery" ? "Livraison" : "Retrait";
+
+  const itemsHtml = items
+    .map((item) => {
+      const title =
+        item.item_type === "product"
+          ? `${item.product_name_snapshot || "Produit"}${item.variant_name_snapshot ? ` — ${item.variant_name_snapshot}` : ""}`
+          : `${item.beverage_name_snapshot || "Boisson"}`;
+
+      return `
+        <tr>
+          <td style="padding:8px 0; vertical-align:top;">
+            ${escapeHtml(title)}
+          </td>
+          <td style="padding:8px 0; vertical-align:top; text-align:center;">
+            ${escapeHtml(item.quantity)}
+          </td>
+          <td style="padding:8px 0; vertical-align:top; text-align:right;">
+            ${escapeHtml(formatPriceFromCents(item.line_total_cents, order.currency))}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const addressHtml =
+    order.fulfillment_method === "delivery"
+      ? `
+        <p style="margin:0 0 8px 0;"><strong>Adresse :</strong> ${escapeHtml(order.delivery_address_line1 || "")}</p>
+        <p style="margin:0 0 8px 0;"><strong>Ville :</strong> ${escapeHtml(order.delivery_postal_code || "")} ${escapeHtml(order.delivery_city || "")}</p>
+      `
+      : "";
+
+  const noteLabel =
+    order.fulfillment_method === "delivery" ? "Instructions" : "Note";
+
+  const noteHtml = order.customer_note
+    ? `<p style="margin:0 0 8px 0;"><strong>${escapeHtml(noteLabel)} :</strong> ${escapeHtml(order.customer_note)}</p>`
+    : "";
+
+  return `
+    <div style="font-family:Arial,sans-serif; color:#111; line-height:1.5;">
+      <h1 style="margin:0 0 16px 0;">Merci pour votre commande Pasta House</h1>
+      <p style="margin:0 0 12px 0;">
+        Votre paiement a bien été confirmé.
+      </p>
+      <p style="margin:0 0 8px 0;"><strong>Numéro de commande :</strong> ${escapeHtml(order.order_number)}</p>
+      <p style="margin:0 0 8px 0;"><strong>Mode :</strong> ${escapeHtml(modeLabel)}</p>
+      <p style="margin:0 0 8px 0;"><strong>Nom :</strong> ${escapeHtml(order.customer_name)}</p>
+      <p style="margin:0 0 8px 0;"><strong>Téléphone :</strong> ${escapeHtml(order.customer_phone)}</p>
+      <p style="margin:0 0 16px 0;"><strong>Email :</strong> ${escapeHtml(order.customer_email)}</p>
+
+      ${addressHtml}
+      ${noteHtml}
+
+      <h2 style="margin:24px 0 12px 0; font-size:18px;">Récapitulatif</h2>
+
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="padding:8px 0; text-align:left; border-bottom:1px solid #ddd;">Article</th>
+            <th style="padding:8px 0; text-align:center; border-bottom:1px solid #ddd;">Qté</th>
+            <th style="padding:8px 0; text-align:right; border-bottom:1px solid #ddd;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+
+      <div style="margin-top:20px;">
+        <p style="margin:0 0 6px 0;"><strong>Sous-total :</strong> ${escapeHtml(formatPriceFromCents(order.subtotal_cents, order.currency))}</p>
+        <p style="margin:0 0 6px 0;"><strong>Livraison :</strong> ${escapeHtml(formatPriceFromCents(order.delivery_fee_cents, order.currency))}</p>
+        <p style="margin:0; font-size:18px;"><strong>Total payé :</strong> ${escapeHtml(formatPriceFromCents(order.total_cents, order.currency))}</p>
+      </div>
+
+      <p style="margin-top:24px; color:#555;">
+        Conservez cet email, il contient votre numéro de commande.
+      </p>
+    </div>
+  `;
+}
+
+function buildOrderConfirmationEmailText({ order, items }) {
+  const modeLabel =
+    order.fulfillment_method === "delivery" ? "Livraison" : "Retrait";
+
+  const lines = items.map((item) => {
+    const title =
+      item.item_type === "product"
+        ? `${item.product_name_snapshot || "Produit"}${item.variant_name_snapshot ? ` - ${item.variant_name_snapshot}` : ""}`
+        : `${item.beverage_name_snapshot || "Boisson"}`;
+
+    return `- ${title} x${item.quantity} : ${formatPriceFromCents(item.line_total_cents, order.currency)}`;
+  });
+
+  return [
+    "Merci pour votre commande Pasta House.",
+    "",
+    "Votre paiement a bien été confirmé.",
+    `Numéro de commande : ${order.order_number}`,
+    `Mode : ${modeLabel}`,
+    `Nom : ${order.customer_name}`,
+    `Téléphone : ${order.customer_phone}`,
+    `Email : ${order.customer_email}`,
+    order.fulfillment_method === "delivery"
+      ? `Adresse : ${order.delivery_address_line1 || ""}, ${order.delivery_postal_code || ""} ${order.delivery_city || ""}`
+      : null,
+    order.customer_note ? `Note : ${order.customer_note}` : null,
+    "",
+    "Récapitulatif :",
+    ...lines,
+    "",
+    `Sous-total : ${formatPriceFromCents(order.subtotal_cents, order.currency)}`,
+    `Livraison : ${formatPriceFromCents(order.delivery_fee_cents, order.currency)}`,
+    `Total payé : ${formatPriceFromCents(order.total_cents, order.currency)}`,
+    "",
+    "Conservez cet email, il contient votre numéro de commande.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function sendOrderPaidConfirmationEmail({ client, orderId }) {
+  const payload = await getOrderEmailPayload({ client, orderId });
+
+  await sendEmail({
+    to: payload.order.customer_email,
+    subject: `Pasta House — confirmation de commande ${payload.order.order_number}`,
+    html: buildOrderConfirmationEmailHtml(payload),
+    text: buildOrderConfirmationEmailText(payload),
+  });
+}
+
 function getOrderIdFromStripeSession(session) {
   const metadataOrderId = session?.metadata?.order_id;
   const clientReferenceId = session?.client_reference_id;
@@ -748,6 +955,12 @@ async function processStripeWebhookEvent({ client, event }) {
         note: "Paiement Stripe confirmé via webhook checkout.session.completed.",
       });
 
+      try {
+        await sendOrderPaidConfirmationEmail({ client, orderId });
+      } catch (emailError) {
+        console.error("Order paid email send error:", emailError);
+      }
+
       return;
     }
 
@@ -765,6 +978,12 @@ async function processStripeWebhookEvent({ client, event }) {
         paymentIntentId: session.payment_intent || null,
         note: "Paiement Stripe asynchrone confirmé via webhook.",
       });
+
+      try {
+        await sendOrderPaidConfirmationEmail({ client, orderId });
+      } catch (emailError) {
+        console.error("Order paid email send error:", emailError);
+      }
 
       return;
     }
