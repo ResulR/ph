@@ -32,6 +32,20 @@ const EMPTY_CHECKOUT_FORM: CheckoutFormState = {
   note: '',
 };
 
+function normalizePhoneNumber(value: string): string {
+  return value.trim().replace(/[()./\-\s]+/g, '');
+}
+
+function isValidPhoneNumber(value: string): boolean {
+  const normalized = normalizePhoneNumber(value);
+
+  if (!normalized) {
+    return false;
+  }
+
+  return /^\+?\d{8,15}$/.test(normalized);
+}
+
 export default function CheckoutPage() {
   const { items, mode, setMode, subtotal, deliveryFee, total, meetsMinimum, minimumOrder } = useCart();
   const navigate = useNavigate();
@@ -81,7 +95,11 @@ export default function CheckoutPage() {
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
     if (!form.nom.trim()) errs.nom = 'Requis';
-    if (!form.telephone.trim()) errs.telephone = 'Requis';
+    if (!form.telephone.trim()) {
+      errs.telephone = 'Requis';
+    } else if (!isValidPhoneNumber(form.telephone)) {
+      errs.telephone = 'Numéro invalide';
+    }
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Email invalide';
     if (mode === 'livraison') {
       if (!form.adresse.trim()) errs.adresse = 'Requis';

@@ -60,6 +60,7 @@ export default function Footer() {
             <ul className="mt-3 space-y-2">
               <li><Link to="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">Accueil</Link></li>
               <li><Link to="/commander" className="text-sm text-muted-foreground hover:text-primary transition-colors">Commander</Link></li>
+              <li><Link to="/contact" className="text-sm text-muted-foreground hover:text-primary transition-colors">Contact</Link></li>
             </ul>
           </div>
           <div>
