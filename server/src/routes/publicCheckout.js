@@ -1,4 +1,5 @@
 const express = require("express");
+const jwt = require("jsonwebtoken");
 const { z } = require("zod");
 const { pool } = require("../db/pool");
 const { env } = require("../config/env");
@@ -47,6 +48,10 @@ const createOrderSchema = z.object({
   mode: z.enum(["livraison", "retrait"]),
   items: z.array(cartItemSchema).min(1, "Le panier ne peut pas être vide."),
   customer: customerSchema,
+});
+
+const recoverTrackingSchema = z.object({
+  email: z.string().trim().email("Email invalide."),
 });
 
 function normalizePhoneNumber(value) {
@@ -622,7 +627,8 @@ async function getOrderEmailPayload({ client, orderId }) {
         delivery_fee_cents,
         total_cents,
         currency,
-        created_at
+        created_at,
+        public_tracking_token
       FROM orders
       WHERE id = $1
       LIMIT 1
@@ -678,6 +684,8 @@ function buildOrderConfirmationEmailHtml({ order, items }) {
   const modeLabel =
     order.fulfillment_method === "delivery" ? "Livraison" : "Retrait";
 
+  const trackingUrl = `${env.appBaseUrl}/suivi/${encodeURIComponent(order.public_tracking_token)}`;
+
   const itemsHtml = items
     .map((item) => {
       const title =
@@ -731,6 +739,24 @@ function buildOrderConfirmationEmailHtml({ order, items }) {
       ${addressHtml}
       ${noteHtml}
 
+      <div style="margin:24px 0; padding:16px; background:#f8f5f1; border:1px solid #e7ddd2; border-radius:12px;">
+        <p style="margin:0 0 12px 0; font-weight:700;">Suivre votre commande</p>
+        <p style="margin:0 0 16px 0; color:#555;">
+          Vous pouvez suivre l’état de votre commande à tout moment depuis ce lien :
+        </p>
+        <p style="margin:0 0 16px 0;">
+          <a
+            href="${escapeHtml(trackingUrl)}"
+            style="display:inline-block; padding:12px 18px; background:#111; color:#fff; text-decoration:none; border-radius:10px; font-weight:700;"
+          >
+            Suivre ma commande
+          </a>
+        </p>
+        <p style="margin:0; color:#555; word-break:break-all;">
+          ${escapeHtml(trackingUrl)}
+        </p>
+      </div>
+
       <h2 style="margin:24px 0 12px 0; font-size:18px;">Récapitulatif</h2>
 
       <table style="width:100%; border-collapse:collapse;">
@@ -753,7 +779,7 @@ function buildOrderConfirmationEmailHtml({ order, items }) {
       </div>
 
       <p style="margin-top:24px; color:#555;">
-        Conservez cet email, il contient votre numéro de commande.
+        Conservez cet email, il contient votre numéro de commande et votre lien de suivi.
       </p>
     </div>
   `;
@@ -762,6 +788,8 @@ function buildOrderConfirmationEmailHtml({ order, items }) {
 function buildOrderConfirmationEmailText({ order, items }) {
   const modeLabel =
     order.fulfillment_method === "delivery" ? "Livraison" : "Retrait";
+
+  const trackingUrl = `${env.appBaseUrl}/suivi/${encodeURIComponent(order.public_tracking_token)}`;
 
   const lines = items.map((item) => {
     const title =
@@ -786,6 +814,9 @@ function buildOrderConfirmationEmailText({ order, items }) {
       : null,
     order.customer_note ? `Note : ${order.customer_note}` : null,
     "",
+    "Suivi de commande :",
+    trackingUrl,
+    "",
     "Récapitulatif :",
     ...lines,
     "",
@@ -793,7 +824,7 @@ function buildOrderConfirmationEmailText({ order, items }) {
     `Livraison : ${formatPriceFromCents(order.delivery_fee_cents, order.currency)}`,
     `Total payé : ${formatPriceFromCents(order.total_cents, order.currency)}`,
     "",
-    "Conservez cet email, il contient votre numéro de commande.",
+    "Conservez cet email, il contient votre numéro de commande et votre lien de suivi.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -808,6 +839,145 @@ async function sendOrderPaidConfirmationEmail({ client, orderId }) {
     html: buildOrderConfirmationEmailHtml(payload),
     text: buildOrderConfirmationEmailText(payload),
   });
+}
+
+function buildTrackingRecoveryEmailHtml({ order }) {
+  const trackingUrl = `${env.appBaseUrl}/suivi/${encodeURIComponent(order.public_tracking_token)}`;
+  const modeLabel =
+    order.fulfillment_method === "delivery" ? "Livraison" : "Retrait";
+
+  return `
+    <div style="font-family:Arial,sans-serif; color:#111; line-height:1.5;">
+      <h1 style="margin:0 0 16px 0;">Retrouver votre commande Pasta House</h1>
+      <p style="margin:0 0 12px 0;">
+        Vous nous avez demandé de retrouver votre lien de suivi.
+      </p>
+      <p style="margin:0 0 8px 0;"><strong>Numéro de commande :</strong> ${escapeHtml(order.order_number)}</p>
+      <p style="margin:0 0 16px 0;"><strong>Mode :</strong> ${escapeHtml(modeLabel)}</p>
+
+      <div style="margin:24px 0; padding:16px; background:#f8f5f1; border:1px solid #e7ddd2; border-radius:12px;">
+        <p style="margin:0 0 12px 0; font-weight:700;">Suivre votre commande</p>
+        <p style="margin:0 0 16px 0; color:#555;">
+          Cliquez sur ce lien pour accéder au suivi de votre commande :
+        </p>
+        <p style="margin:0 0 16px 0;">
+          <a
+            href="${escapeHtml(trackingUrl)}"
+            style="display:inline-block; padding:12px 18px; background:#111; color:#fff; text-decoration:none; border-radius:10px; font-weight:700;"
+          >
+            Suivre ma commande
+          </a>
+        </p>
+        <p style="margin:0; color:#555; word-break:break-all;">
+          ${escapeHtml(trackingUrl)}
+        </p>
+      </div>
+
+      <p style="margin-top:24px; color:#555;">
+        Si vous avez fait une erreur dans l’adresse email saisie ou si vous rencontrez encore un problème, contactez directement le restaurant.
+      </p>
+    </div>
+  `;
+}
+
+function buildTrackingRecoveryEmailText({ order }) {
+  const trackingUrl = `${env.appBaseUrl}/suivi/${encodeURIComponent(order.public_tracking_token)}`;
+  const modeLabel =
+    order.fulfillment_method === "delivery" ? "Livraison" : "Retrait";
+
+  return [
+    "Retrouver votre commande Pasta House.",
+    "",
+    "Vous nous avez demandé de retrouver votre lien de suivi.",
+    `Numéro de commande : ${order.order_number}`,
+    `Mode : ${modeLabel}`,
+    "",
+    "Suivi de commande :",
+    trackingUrl,
+    "",
+    "Si vous avez fait une erreur dans l’adresse email saisie ou si vous rencontrez encore un problème, contactez directement le restaurant.",
+  ].join("\n");
+}
+
+async function sendTrackingRecoveryEmail({ order }) {
+  await sendEmail({
+    to: order.customer_email,
+    subject: `Pasta House — lien de suivi pour la commande ${order.order_number}`,
+    html: buildTrackingRecoveryEmailHtml({ order }),
+    text: buildTrackingRecoveryEmailText({ order }),
+  });
+}
+
+const ORDER_TRACKING_RECOVERY_MAX_ATTEMPTS_PER_DAY = 2;
+const ORDER_TRACKING_RECOVERY_MAX_ORDER_AGE_HOURS = 5;
+
+function getRequestIp(req) {
+  const forwardedForHeader = req.headers["x-forwarded-for"];
+
+  if (typeof forwardedForHeader === "string" && forwardedForHeader.trim()) {
+    return forwardedForHeader.split(",")[0].trim();
+  }
+
+  if (Array.isArray(forwardedForHeader) && forwardedForHeader.length > 0) {
+    return String(forwardedForHeader[0]).split(",")[0].trim();
+  }
+
+  return (
+    req.ip ||
+    req.socket?.remoteAddress ||
+    "unknown"
+  );
+}
+
+async function isAuthenticatedAdminRequest(req) {
+  try {
+    if (!env.jwtSecret) {
+      return false;
+    }
+
+    const token = req.cookies?.admin_token;
+
+    if (!token) {
+      return false;
+    }
+
+    let payload;
+
+    try {
+      payload = jwt.verify(token, env.jwtSecret);
+    } catch (_error) {
+      return false;
+    }
+
+    if (payload.role !== "admin") {
+      return false;
+    }
+
+    const adminId = Number(payload.sub);
+
+    if (!Number.isInteger(adminId) || adminId <= 0) {
+      return false;
+    }
+
+    const result = await pool.query(
+      `
+        SELECT id, is_active
+        FROM admins
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [adminId]
+    );
+
+    if (result.rowCount === 0) {
+      return false;
+    }
+
+    return Boolean(result.rows[0].is_active);
+  } catch (error) {
+    console.error("Optional admin auth check error:", error);
+    return false;
+  }
 }
 
 function getOrderIdFromStripeSession(session) {
@@ -1802,7 +1972,8 @@ publicCheckoutRouter.get("/orders/confirmation", async (req, res) => {
           stripe_checkout_session_id,
           stripe_payment_intent_id,
           paid_at,
-          created_at
+          created_at,
+          public_tracking_token
         FROM orders
         WHERE stripe_checkout_session_id = $1
           AND order_number = $2
@@ -1832,6 +2003,7 @@ publicCheckoutRouter.get("/orders/confirmation", async (req, res) => {
         stripePaymentIntentId: order.stripe_payment_intent_id,
         paymentConfirmed,
         createdAt: order.created_at,
+        trackingToken: order.public_tracking_token,
       },
     });
   } catch (error) {
@@ -1840,6 +2012,202 @@ publicCheckoutRouter.get("/orders/confirmation", async (req, res) => {
       ok: false,
       error: "INTERNAL_SERVER_ERROR",
     });
+  }
+});
+
+publicCheckoutRouter.get("/orders/tracking/:token", async (req, res) => {
+  try {
+    const trackingToken = typeof req.params.token === "string"
+      ? req.params.token.trim()
+      : "";
+
+    if (!trackingToken) {
+      return res.status(400).json({
+        ok: false,
+        error: "INVALID_REQUEST",
+        message: "Le token de suivi est obligatoire.",
+      });
+    }
+
+    const orderResult = await pool.query(
+      `
+        SELECT
+          id,
+          order_number,
+          status,
+          fulfillment_method,
+          paid_at,
+          created_at,
+          updated_at
+        FROM orders
+        WHERE public_tracking_token = $1
+        LIMIT 1
+      `,
+      [trackingToken]
+    );
+
+    if (orderResult.rowCount === 0) {
+      return res.status(404).json({
+        ok: false,
+        error: "ORDER_NOT_FOUND",
+        message: "Commande introuvable.",
+      });
+    }
+
+    const order = orderResult.rows[0];
+
+    const statusHistoryResult = await pool.query(
+      `
+        SELECT
+          status,
+          created_at
+        FROM order_status_history
+        WHERE order_id = $1
+        ORDER BY created_at ASC, id ASC
+      `,
+      [order.id]
+    );
+
+    const paymentConfirmed = order.status === "paid" || order.paid_at !== null;
+
+    return res.status(200).json({
+      ok: true,
+      data: {
+        orderNumber: order.order_number,
+        status: order.status,
+        fulfillmentMethod: order.fulfillment_method,
+        paidAt: order.paid_at,
+        paymentConfirmed,
+        createdAt: order.created_at,
+        updatedAt: order.updated_at,
+        statusHistory: statusHistoryResult.rows.map((row) => ({
+          status: row.status,
+          createdAt: row.created_at,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("GET /api/public/orders/tracking/:token error:", error);
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_SERVER_ERROR",
+    });
+  }
+});
+
+publicCheckoutRouter.post("/orders/recover-tracking", async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const parsed = recoverTrackingSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        ok: false,
+        error: "INVALID_REQUEST_BODY",
+        message: "Corps de requête invalide.",
+        errors: parsed.error.flatten(),
+      });
+    }
+
+    const normalizedEmail = parsed.data.email.trim().toLowerCase();
+    const requestIp = getRequestIp(req);
+    const isAdminRequest = await isAuthenticatedAdminRequest(req);
+
+    if (!isAdminRequest) {
+      const [emailAttemptsResult, ipAttemptsResult] = await Promise.all([
+        client.query(
+          `
+            SELECT COUNT(*)::int AS attempt_count
+            FROM order_tracking_recovery_attempts
+            WHERE email = $1
+              AND created_at >= NOW() - INTERVAL '1 day'
+          `,
+          [normalizedEmail]
+        ),
+        client.query(
+          `
+            SELECT COUNT(*)::int AS attempt_count
+            FROM order_tracking_recovery_attempts
+            WHERE ip_address = $1
+              AND created_at >= NOW() - INTERVAL '1 day'
+          `,
+          [requestIp]
+        ),
+      ]);
+
+      const emailAttemptCount = emailAttemptsResult.rows[0]?.attempt_count ?? 0;
+      const ipAttemptCount = ipAttemptsResult.rows[0]?.attempt_count ?? 0;
+
+      if (
+        emailAttemptCount >= ORDER_TRACKING_RECOVERY_MAX_ATTEMPTS_PER_DAY ||
+        ipAttemptCount >= ORDER_TRACKING_RECOVERY_MAX_ATTEMPTS_PER_DAY
+      ) {
+        return res.status(429).json({
+          ok: false,
+          error: "ORDER_TRACKING_RECOVERY_LIMIT_REACHED",
+          message:
+            "Trop de tentatives ont déjà été effectuées pour retrouver une commande. Merci de nous contacter directement.",
+        });
+      }
+
+      await client.query(
+        `
+          INSERT INTO order_tracking_recovery_attempts (
+            email,
+            ip_address
+          )
+          VALUES ($1, $2)
+        `,
+        [normalizedEmail, requestIp]
+      );
+    }
+
+    const orderResult = await client.query(
+      `
+        SELECT
+          id,
+          order_number,
+          fulfillment_method,
+          customer_email,
+          public_tracking_token,
+          status,
+          created_at
+        FROM orders
+        WHERE lower(customer_email) = $1
+          AND status = ANY($2::text[])
+          AND created_at >= NOW() - ($3::text || ' hours')::interval
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+      `,
+      [
+        normalizedEmail,
+        ["paid", "preparing", "ready", "in_delivery", "completed"],
+        String(ORDER_TRACKING_RECOVERY_MAX_ORDER_AGE_HOURS),
+      ]
+    );
+
+    if (orderResult.rowCount > 0) {
+      try {
+        await sendTrackingRecoveryEmail({ order: orderResult.rows[0] });
+      } catch (emailError) {
+        console.error("Tracking recovery email send error:", emailError);
+      }
+    }
+
+    return res.status(200).json({
+      ok: true,
+      message:
+        "Si une commande récente correspond à cette adresse, un email de suivi vient d’être envoyé. Pensez à vérifier aussi vos spams, promotions et courriers indésirables.",
+    });
+  } catch (error) {
+    console.error("POST /api/public/orders/recover-tracking error:", error);
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_SERVER_ERROR",
+    });
+  } finally {
+    client.release();
   }
 });
 

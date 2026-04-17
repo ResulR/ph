@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import OrderPage from "./pages/OrderPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import ContactPage from "./pages/ContactPage";
+import OrderTrackingPage from "./pages/OrderTrackingPage";
 import OrderConfirmationPage from "./pages/OrderConfirmationPage";
 import PaymentCancelledPage from "./pages/PaymentCancelledPage";
 import MentionsLegalesPage from "./pages/MentionsLegalesPage";
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/commande-confirmee" element={<OrderConfirmationPage />} />
+              <Route path="/suivi/:token" element={<OrderTrackingPage />} />
               <Route path="/paiement-annule" element={<PaymentCancelledPage />} />
               <Route path="/mentions-legales" element={<MentionsLegalesPage />} />
               <Route path="/confidentialite" element={<ConfidentialitePage />} />

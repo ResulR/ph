@@ -8,6 +8,7 @@ import { useCart } from '@/contexts/CartContext';
 import { fetchPublicMenu } from '@/lib/menu-api';
 
 const CHECKOUT_FORM_STORAGE_KEY = 'pasta-house-checkout-form';
+const LAST_TRACKED_ORDER_STORAGE_KEY = 'pasta-house-last-tracked-order';
 
 interface OrderConfirmationResponse {
   ok: boolean;
@@ -19,6 +20,7 @@ interface OrderConfirmationResponse {
     stripePaymentIntentId: string | null;
     paymentConfirmed: boolean;
     createdAt: string;
+    trackingToken: string;
   };
   message?: string;
   error?: string;
@@ -34,6 +36,7 @@ export default function OrderConfirmationPage() {
   const [error, setError] = useState('');
   const [confirmedOrderNumber, setConfirmedOrderNumber] = useState('');
   const [fulfillmentMethod, setFulfillmentMethod] = useState<'delivery' | 'pickup' | ''>('');
+  const [trackingToken, setTrackingToken] = useState('');
 
   const [restaurantName, setRestaurantName] = useState('Pasta House');
   const [addressLine, setAddressLine] = useState('[Adresse à définir], Bruxelles');
@@ -93,50 +96,77 @@ export default function OrderConfirmationPage() {
         return;
       }
 
-      try {
-        const response = await fetch(
-          `/api/public/orders/confirmation?session_id=${encodeURIComponent(sessionId)}&orderNumber=${encodeURIComponent(orderNumber)}`,
-          {
-            method: 'GET',
-            headers: {
-              Accept: 'application/json',
-            },
+      const maxAttempts = 10;
+      const retryDelayMs = 2000;
+      // eslint-disable-next-line prefer-const
+      let lastErrorMessage =
+        'Le paiement n’a pas encore pu être confirmé. Vérifiez dans quelques instants depuis l’admin ou réessayez plus tard.';
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const response = await fetch(
+            `/api/public/orders/confirmation?session_id=${encodeURIComponent(sessionId)}&orderNumber=${encodeURIComponent(orderNumber)}`,
+            {
+              method: 'GET',
+              headers: {
+                Accept: 'application/json',
+              },
+            }
+          );
+
+          const json = (await response.json()) as OrderConfirmationResponse;
+
+          if (!response.ok || !json.ok || !json.data) {
+            throw new Error(json.message || 'Impossible de vérifier la commande.');
           }
-        );
 
-        const json = (await response.json()) as OrderConfirmationResponse;
+          if (!json.data.paymentConfirmed) {
+            throw new Error('Le paiement n’est pas encore confirmé.');
+          }
 
-        if (!response.ok || !json.ok || !json.data) {
-          throw new Error(json.message || 'Impossible de vérifier la commande.');
-        }
+          if (!isMounted) return;
 
-        if (!json.data.paymentConfirmed) {
-          throw new Error('Le paiement n’est pas encore confirmé.');
-        }
-
-        if (!isMounted) return;
-
-        setConfirmedOrderNumber(json.data.orderNumber);
-        setFulfillmentMethod(json.data.fulfillmentMethod);
-        clearCart();
+          setError('');
+          setConfirmedOrderNumber(json.data.orderNumber);
+          setFulfillmentMethod(json.data.fulfillmentMethod);
+          setTrackingToken(json.data.trackingToken);
+          clearCart();
 
         try {
           localStorage.removeItem(CHECKOUT_FORM_STORAGE_KEY);
+          localStorage.setItem(
+            LAST_TRACKED_ORDER_STORAGE_KEY,
+            JSON.stringify({
+              orderNumber: json.data.orderNumber,
+              trackingToken: json.data.trackingToken,
+              savedAt: new Date().toISOString(),
+            }),
+          );
         } catch (storageError) {
-          console.error('Failed to clear checkout form from localStorage:', storageError);
+          console.error('Failed to update order tracking data in localStorage:', storageError);
         }
-      } catch (err) {
-        console.error('Order confirmation fetch error:', err);
 
-        if (!isMounted) return;
-        setError('Le paiement n’a pas encore pu être confirmé. Vérifiez dans quelques instants depuis l’admin ou réessayez plus tard.');
-      } finally {
-        if (!isMounted) return;
-        setLoading(false);
+          setLoading(false);
+          return;
+        } catch (err) {
+          console.error(`Order confirmation fetch error (attempt ${attempt}/${maxAttempts}):`, err);
+
+          if (attempt === maxAttempts) {
+            break;
+          }
+
+          await new Promise((resolve) => {
+            setTimeout(resolve, retryDelayMs);
+          });
+        }
       }
+
+      if (!isMounted) return;
+      setError(lastErrorMessage);
+      setLoading(false);
     };
 
-    run();
+    void run();
 
     return () => {
       isMounted = false;
@@ -295,6 +325,14 @@ export default function OrderConfirmationPage() {
             </Button>
           </div>
         </div>
+
+        {trackingToken && (
+          <div className="mt-6 flex justify-center">
+            <Button asChild variant="outline">
+              <Link to={`/suivi/${trackingToken}`}>Suivre ma commande</Link>
+            </Button>
+          </div>
+        )}        
 
         <p className="text-sm text-muted-foreground mt-6 text-center">
           Conservez votre numéro de commande pour le suivi.

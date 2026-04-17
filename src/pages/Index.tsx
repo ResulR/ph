@@ -16,6 +16,14 @@ interface FeaturedProductCard {
   minPriceCents: number;
 }
 
+interface SavedTrackedOrder {
+  orderNumber: string;
+  trackingToken: string;
+  savedAt: string;
+}
+
+const LAST_TRACKED_ORDER_STORAGE_KEY = 'pasta-house-last-tracked-order';
+
 function formatHourLabel(time: string | null | undefined): string | null {
   if (!time) return null;
   const [hours, minutes] = time.split(':');
@@ -30,6 +38,7 @@ export default function HomePage() {
   const [deliveryFeeCents, setDeliveryFeeCents] = useState(500);
   const [openingLabel, setOpeningLabel] = useState('20h – 01h');
   const [loading, setLoading] = useState(true);
+  const [lastTrackedOrder, setLastTrackedOrder] = useState<SavedTrackedOrder | null>(null);
   const heroSlides = useMemo(
     () => [
       { id: 'bolo', src: ravierBoloImage, alt: 'Pâtes bolognaise en ravier' },
@@ -105,6 +114,39 @@ export default function HomePage() {
   }, []);
 
     useEffect(() => {
+    try {
+      const rawValue = localStorage.getItem(LAST_TRACKED_ORDER_STORAGE_KEY);
+
+      if (!rawValue) {
+        setLastTrackedOrder(null);
+        return;
+      }
+
+      const parsed = JSON.parse(rawValue);
+
+      if (
+        parsed &&
+        typeof parsed.orderNumber === 'string' &&
+        typeof parsed.trackingToken === 'string' &&
+        typeof parsed.savedAt === 'string'
+      ) {
+        setLastTrackedOrder({
+          orderNumber: parsed.orderNumber,
+          trackingToken: parsed.trackingToken,
+          savedAt: parsed.savedAt,
+        });
+        return;
+      }
+
+      localStorage.removeItem(LAST_TRACKED_ORDER_STORAGE_KEY);
+      setLastTrackedOrder(null);
+    } catch (error) {
+      console.error('Failed to read last tracked order from localStorage:', error);
+      setLastTrackedOrder(null);
+    }
+  }, []);
+
+    useEffect(() => {
     const interval = window.setInterval(() => {
       setActiveSlide((current) => (current + 1) % heroSlides.length);
     }, 4200);
@@ -151,7 +193,20 @@ export default function HomePage() {
                 Commander maintenant <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
+
+            {lastTrackedOrder && (
+              <Button asChild size="lg" variant="outline" className="text-base px-8 h-12">
+                <Link to={`/suivi/${lastTrackedOrder.trackingToken}`}>
+                  Suivre ma commande
+                </Link>
+              </Button>
+            )}
           </div>
+                    {lastTrackedOrder && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Dernière commande enregistrée : {lastTrackedOrder.orderNumber}
+            </p>
+          )}
           <div className="mt-8 flex items-center justify-center gap-6 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5"><Clock className="h-4 w-4 text-primary" /> {openingLabel}</span>
             <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-primary" /> {deliveryZoneLabel}</span>
