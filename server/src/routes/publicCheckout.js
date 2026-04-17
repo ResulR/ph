@@ -1798,6 +1798,7 @@ publicCheckoutRouter.get("/orders/confirmation", async (req, res) => {
           id,
           order_number,
           status,
+          fulfillment_method,
           stripe_checkout_session_id,
           stripe_payment_intent_id,
           paid_at,
@@ -1826,6 +1827,7 @@ publicCheckoutRouter.get("/orders/confirmation", async (req, res) => {
       data: {
         orderNumber: order.order_number,
         status: order.status,
+        fulfillmentMethod: order.fulfillment_method,
         paidAt: order.paid_at,
         stripePaymentIntentId: order.stripe_payment_intent_id,
         paymentConfirmed,
