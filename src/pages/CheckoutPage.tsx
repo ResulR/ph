@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ClientLayout from '@/components/client/ClientLayout';
 import { useCart } from '@/contexts/CartContext';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { fetchPublicMenu } from '@/lib/menu-api';
 
 const CHECKOUT_FORM_STORAGE_KEY = 'pasta-house-checkout-form';
 
@@ -52,6 +53,8 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
+  const [estimatedDeliveryTimeMin, setEstimatedDeliveryTimeMin] = useState(30);
+  const [estimatedPickupTimeMin, setEstimatedPickupTimeMin] = useState(15);  
 
   const [form, setForm] = useState<CheckoutFormState>(() => {
     try {
@@ -84,13 +87,47 @@ export default function CheckoutPage() {
     setErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
   };
 
-    useEffect(() => {
+  useEffect(() => {
     try {
       localStorage.setItem(CHECKOUT_FORM_STORAGE_KEY, JSON.stringify(form));
     } catch (error) {
       console.error('Failed to persist checkout form to localStorage:', error);
     }
   }, [form]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDeliveryTimes() {
+      try {
+        const data = await fetchPublicMenu();
+
+        if (!isMounted) return;
+
+        if (typeof data.deliverySettings?.estimatedDeliveryTimeMin === 'number') {
+          setEstimatedDeliveryTimeMin(data.deliverySettings.estimatedDeliveryTimeMin);
+        }
+
+        if (typeof data.deliverySettings?.estimatedPickupTimeMin === 'number') {
+          setEstimatedPickupTimeMin(data.deliverySettings.estimatedPickupTimeMin);
+        }
+      } catch (error) {
+        console.error('Failed to load estimated delivery times:', error);
+      }
+    }
+
+    void loadDeliveryTimes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const estimatedTimeLabel = useMemo(() => {
+    return mode === 'livraison'
+      ? `Temps estimé de livraison : environ ${estimatedDeliveryTimeMin} min`
+      : `Temps estimé de retrait : environ ${estimatedPickupTimeMin} min`;
+  }, [mode, estimatedDeliveryTimeMin, estimatedPickupTimeMin]);
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -194,6 +231,13 @@ export default function CheckoutPage() {
               {m === 'livraison' ? '🛵 Livraison' : '🏠 Retrait'}
             </button>
           ))}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-border/50 bg-card p-4">
+          <p className="text-sm font-medium text-foreground">{estimatedTimeLabel}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Le délai peut varier légèrement selon l’affluence.
+          </p>
         </div>
 
         {/* Summary */}

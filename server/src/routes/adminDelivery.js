@@ -12,6 +12,9 @@ const updateDeliverySettingsSchema = z.object({
   fee: z.number().min(0, "Les frais de livraison doivent être positifs ou nuls."),
   minimumOrder: z.number().min(0, "Le minimum de commande doit être positif ou nul."),
   zone: z.string().trim().max(255, "La zone de livraison est trop longue.").default(""),
+  estimatedDeliveryTime: z.number().int().positive("Le délai de livraison doit être supérieur à 0."),
+  estimatedPickupTime: z.number().int().positive("Le délai de retrait doit être supérieur à 0."),
+  rushModeEnabled: z.boolean(),
 });
 
 adminDeliveryRouter.get("/delivery", requireAdminAuth, async (_req, res) => {
@@ -24,7 +27,10 @@ adminDeliveryRouter.get("/delivery", requireAdminAuth, async (_req, res) => {
           pickup_enabled,
           delivery_fee_cents,
           minimum_order_cents,
-          delivery_zone_label
+          delivery_zone_label,
+          estimated_delivery_time_min,
+          estimated_pickup_time_min,
+          rush_mode_enabled
         FROM delivery_settings
         WHERE singleton = TRUE
         LIMIT 1
@@ -49,6 +55,9 @@ adminDeliveryRouter.get("/delivery", requireAdminAuth, async (_req, res) => {
         fee: row.delivery_fee_cents / 100,
         minimumOrder: row.minimum_order_cents / 100,
         zone: row.delivery_zone_label || "",
+        estimatedDeliveryTime: row.estimated_delivery_time_min,
+        estimatedPickupTime: row.estimated_pickup_time_min,
+        rushModeEnabled: row.rush_mode_enabled,
       },
     });
   } catch (error) {
@@ -72,7 +81,16 @@ adminDeliveryRouter.patch("/delivery", requireAdminAuth, requireAdminCsrf, async
       });
     }
 
-    const { enabled, pickupEnabled, fee, minimumOrder, zone } = parsed.data;
+    const {
+      enabled,
+      pickupEnabled,
+      fee,
+      minimumOrder,
+      zone,
+      estimatedDeliveryTime,
+      estimatedPickupTime,
+      rushModeEnabled,
+    } = parsed.data;
 
     const result = await pool.query(
       `
@@ -83,6 +101,9 @@ adminDeliveryRouter.patch("/delivery", requireAdminAuth, requireAdminCsrf, async
           delivery_fee_cents = $3,
           minimum_order_cents = $4,
           delivery_zone_label = $5,
+          estimated_delivery_time_min = $6,
+          estimated_pickup_time_min = $7,
+          rush_mode_enabled = $8,
           updated_at = NOW()
         WHERE singleton = TRUE
         RETURNING
@@ -91,7 +112,10 @@ adminDeliveryRouter.patch("/delivery", requireAdminAuth, requireAdminCsrf, async
           pickup_enabled,
           delivery_fee_cents,
           minimum_order_cents,
-          delivery_zone_label
+          delivery_zone_label,
+          estimated_delivery_time_min,
+          estimated_pickup_time_min,
+          rush_mode_enabled
       `,
       [
         enabled,
@@ -99,6 +123,9 @@ adminDeliveryRouter.patch("/delivery", requireAdminAuth, requireAdminCsrf, async
         Math.round(fee * 100),
         Math.round(minimumOrder * 100),
         zone || null,
+        estimatedDeliveryTime,
+        estimatedPickupTime,
+        rushModeEnabled,
       ]
     );
 
@@ -120,6 +147,9 @@ adminDeliveryRouter.patch("/delivery", requireAdminAuth, requireAdminCsrf, async
         fee: row.delivery_fee_cents / 100,
         minimumOrder: row.minimum_order_cents / 100,
         zone: row.delivery_zone_label || "",
+        estimatedDeliveryTime: row.estimated_delivery_time_min,
+        estimatedPickupTime: row.estimated_pickup_time_min,
+        rushModeEnabled: row.rush_mode_enabled,
       },
       message: "Paramètres de livraison mis à jour avec succès.",
     });

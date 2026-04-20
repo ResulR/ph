@@ -76,6 +76,8 @@
 
 7. **Pas de suivi de commande côté client** — Après la confirmation, le client n'a aucun moyen de suivre sa commande. Pas de page "suivi", pas de lien dans un email (qui n'existe pas non plus).
 
+7. token admin visible front OK ou KO ??
+
 8. **Pas d'estimation de temps de livraison** — Nulle part le client ne voit "livraison en ~30 min". C'est une info critique pour la conversion.
 
 9. **Footer affiche des placeholders** — `[Adresse à définir]` et `[À définir]` comme fallback si l'API ne répond pas. En cas d'erreur réseau, le site affiche ces textes embarrassants.

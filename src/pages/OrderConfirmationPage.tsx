@@ -1,4 +1,3 @@
-/* eslint-disable no-unsafe-finally */
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle, Mail, MapPin, Phone } from 'lucide-react';
@@ -37,6 +36,9 @@ export default function OrderConfirmationPage() {
   const [confirmedOrderNumber, setConfirmedOrderNumber] = useState('');
   const [fulfillmentMethod, setFulfillmentMethod] = useState<'delivery' | 'pickup' | ''>('');
   const [trackingToken, setTrackingToken] = useState('');
+  const [estimatedDeliveryTimeMin, setEstimatedDeliveryTimeMin] = useState(30);
+  const [estimatedPickupTimeMin, setEstimatedPickupTimeMin] = useState(15);
+  const [rushModeEnabled, setRushModeEnabled] = useState(false);  
 
   const [restaurantName, setRestaurantName] = useState('Pasta House');
   const [addressLine, setAddressLine] = useState('[Adresse à définir], Bruxelles');
@@ -73,6 +75,30 @@ export default function OrderConfirmationPage() {
         if (data?.siteSettings?.email) {
           setEmail(data.siteSettings.email);
         }
+
+        if (typeof data?.deliverySettings?.estimatedDeliveryTimeMin === 'number') {
+          setEstimatedDeliveryTimeMin(data.deliverySettings.estimatedDeliveryTimeMin);
+        }
+
+        if (typeof data?.deliverySettings?.estimatedPickupTimeMin === 'number') {
+          setEstimatedPickupTimeMin(data.deliverySettings.estimatedPickupTimeMin);
+        }
+
+        if (typeof data?.deliverySettings?.rushModeEnabled === 'boolean') {
+          setRushModeEnabled(data.deliverySettings.rushModeEnabled);
+        }
+
+        if (typeof data?.deliverySettings?.estimatedDeliveryTimeMin === 'number') {
+          setEstimatedDeliveryTimeMin(data.deliverySettings.estimatedDeliveryTimeMin);
+        }
+
+        if (typeof data?.deliverySettings?.estimatedPickupTimeMin === 'number') {
+          setEstimatedPickupTimeMin(data.deliverySettings.estimatedPickupTimeMin);
+        }
+
+        if (typeof data?.deliverySettings?.rushModeEnabled === 'boolean') {
+          setRushModeEnabled(data.deliverySettings.rushModeEnabled);
+        }        
       } catch (contactError) {
         console.error('Failed to load contact data for confirmation page:', contactError);
       }
@@ -183,6 +209,18 @@ export default function OrderConfirmationPage() {
     return `mailto:${email}`;
   }, [email]);
 
+  const estimatedTimeLabel = useMemo(() => {
+    if (fulfillmentMethod === 'pickup') {
+      return `Temps estimé de retrait : environ ${estimatedPickupTimeMin} min`;
+    }
+
+    if (fulfillmentMethod === 'delivery') {
+      return `Temps estimé de livraison : environ ${estimatedDeliveryTimeMin} min`;
+    }
+
+    return '';
+  }, [fulfillmentMethod, estimatedDeliveryTimeMin, estimatedPickupTimeMin]);
+
   if (loading) {
     return (
       <ClientLayout>
@@ -261,6 +299,15 @@ export default function OrderConfirmationPage() {
           </div>
         </div>
 
+        {estimatedTimeLabel && (
+          <div className="mt-6 rounded-xl border border-border bg-card p-5">
+            <h2 className="font-medium text-foreground">Temps estimé</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {estimatedTimeLabel}
+            </p>
+          </div>
+        )}
+
         <div className="mt-6 rounded-xl border border-primary/20 bg-primary/10 p-5">
           <div className="flex items-start gap-3">
             <Mail className="h-5 w-5 text-primary mt-0.5" />
@@ -273,6 +320,15 @@ export default function OrderConfirmationPage() {
             </div>
           </div>
         </div>
+
+        {rushModeEnabled && (
+          <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
+            <h2 className="font-medium text-foreground">Affluence élevée actuellement</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Nous faisons face à une forte affluence en ce moment. Votre commande pourrait prendre un peu plus de temps que d’habitude. Merci pour votre patience.
+            </p>
+          </div>
+        )}
 
         {fulfillmentMethod === 'pickup' && (
           <div className="mt-6 rounded-xl border border-border bg-card p-5">

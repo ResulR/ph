@@ -23,6 +23,8 @@ export default function OrderPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [estimatedDeliveryTimeMin, setEstimatedDeliveryTimeMin] = useState(30);
+  const [estimatedPickupTimeMin, setEstimatedPickupTimeMin] = useState(15);  
 
   const { itemCount, total } = useCart();
 
@@ -35,6 +37,13 @@ export default function OrderPage() {
         setError(null);
 
         const data = await fetchPublicMenu();
+        if (typeof data.deliverySettings?.estimatedDeliveryTimeMin === 'number') {
+          setEstimatedDeliveryTimeMin(data.deliverySettings.estimatedDeliveryTimeMin);
+        }
+
+        if (typeof data.deliverySettings?.estimatedPickupTimeMin === 'number') {
+          setEstimatedPickupTimeMin(data.deliverySettings.estimatedPickupTimeMin);
+        }        
 
         if (!isMounted) return;
 
@@ -137,6 +146,14 @@ export default function OrderPage() {
       <div className="container py-6 pb-24">
         <h1 className="font-display text-2xl font-bold md:text-3xl">Notre carte</h1>
         <p className="text-muted-foreground text-sm mt-1">Choisissez vos plats et composez votre commande.</p>
+                <div className="mt-4 rounded-xl border border-border/50 bg-card p-4">
+          <p className="text-sm font-medium text-foreground">
+            Délais habituels
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Livraison : environ {estimatedDeliveryTimeMin} min · Retrait : environ {estimatedPickupTimeMin} min
+          </p>
+        </div>
 
         {loading ? (
           <div className="mt-6 rounded-xl border border-border/50 bg-card p-4 text-sm text-muted-foreground">

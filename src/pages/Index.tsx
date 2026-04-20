@@ -36,6 +36,7 @@ export default function HomePage() {
   const [restaurantName, setRestaurantName] = useState('Pasta House');
   const [deliveryZoneLabel, setDeliveryZoneLabel] = useState('Bruxelles');
   const [deliveryFeeCents, setDeliveryFeeCents] = useState(500);
+  const [estimatedDeliveryTimeMin, setEstimatedDeliveryTimeMin] = useState(30);
   const [openingLabel, setOpeningLabel] = useState('20h – 01h');
   const [loading, setLoading] = useState(true);
   const [lastTrackedOrder, setLastTrackedOrder] = useState<SavedTrackedOrder | null>(null);
@@ -91,6 +92,10 @@ export default function HomePage() {
         if (typeof data.deliverySettings?.deliveryFeeCents === 'number') {
           setDeliveryFeeCents(data.deliverySettings.deliveryFeeCents);
         }
+
+        if (typeof data.deliverySettings?.estimatedDeliveryTimeMin === 'number') {
+          setEstimatedDeliveryTimeMin(data.deliverySettings.estimatedDeliveryTimeMin);
+        }        
 
         if (openLabel && closeLabel) {
           setOpeningLabel(`${openLabel} – ${closeLabel}`);
@@ -202,7 +207,12 @@ export default function HomePage() {
               </Button>
             )}
           </div>
-                    {lastTrackedOrder && (
+
+          <p className="mt-4 text-sm font-medium text-foreground/90">
+            Vos pâtes livrées en environ {estimatedDeliveryTimeMin} min
+          </p>
+
+          {lastTrackedOrder && (
             <p className="mt-3 text-sm text-muted-foreground">
               Dernière commande enregistrée : {lastTrackedOrder.orderNumber}
             </p>

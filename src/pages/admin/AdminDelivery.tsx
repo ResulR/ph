@@ -49,6 +49,9 @@ export default function AdminDelivery() {
         fee: data.data.fee,
         minimumOrder: data.data.minimumOrder,
         zone: data.data.zone,
+        estimatedDeliveryTime: data.data.estimatedDeliveryTime,
+        estimatedPickupTime: data.data.estimatedPickupTime,
+        rushModeEnabled: data.data.rushModeEnabled,
       });
     } catch (err) {
       console.error('Admin delivery fetch error:', err);
@@ -104,6 +107,9 @@ export default function AdminDelivery() {
         fee: data.data.fee,
         minimumOrder: data.data.minimumOrder,
         zone: data.data.zone,
+        estimatedDeliveryTime: data.data.estimatedDeliveryTime,
+        estimatedPickupTime: data.data.estimatedPickupTime,
+        rushModeEnabled: data.data.rushModeEnabled,
       });
       setSuccessMessage(data.message || 'Paramètres de livraison mis à jour avec succès.');
     } catch (err) {
@@ -229,6 +235,47 @@ export default function AdminDelivery() {
           <p className="text-xs text-muted-foreground mt-1">
             V1 : zone affichée côté client. Pourra évoluer plus tard vers des zones plus précises.
           </p>
+        </div>
+                <div>
+          <Label>Temps estimé livraison (min)</Label>
+          <Input
+            type="number"
+            step="1"
+            min="1"
+            value={settings.estimatedDeliveryTime}
+            onChange={(e) => update('estimatedDeliveryTime', parseInt(e.target.value, 10) || 1)}
+            className="w-32 mt-1"
+          />
+        </div>
+
+        <div>
+          <Label>Temps estimé retrait (min)</Label>
+          <Input
+            type="number"
+            step="1"
+            min="1"
+            value={settings.estimatedPickupTime}
+            onChange={(e) => update('estimatedPickupTime', parseInt(e.target.value, 10) || 1)}
+            className="w-32 mt-1"
+          />
+        </div>
+
+        <div className="card-premium p-4 flex items-center justify-between">
+          <div>
+            <p className="font-medium">Mode rush activé</p>
+            <p className="text-xs text-muted-foreground">
+              Affiche un message d’affluence après commande et dans l’email de confirmation
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => update('rushModeEnabled', !settings.rushModeEnabled)}
+            className={`h-6 w-11 rounded-full transition-colors ${settings.rushModeEnabled ? 'bg-primary' : 'bg-muted'}`}
+          >
+            <div
+              className={`h-5 w-5 rounded-full bg-foreground transition-transform ${settings.rushModeEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}
+            />
+          </button>
         </div>
       </div>
     </div>

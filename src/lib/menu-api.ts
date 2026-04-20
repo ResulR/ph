@@ -56,6 +56,9 @@ export interface ApiDeliverySettings {
   deliveryFeeCents: number;
   minimumOrderCents: number;
   deliveryZoneLabel: string | null;
+  estimatedDeliveryTimeMin: number;
+  estimatedPickupTimeMin: number;
+  rushModeEnabled: boolean;
 }
 
 export interface ApiOpeningHour {

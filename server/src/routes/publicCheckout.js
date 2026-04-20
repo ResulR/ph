@@ -609,58 +609,95 @@ function buildStripeLineItems(validatedCart) {
   return lineItems;
 }
 
+function buildEstimatedTimeLabel({ fulfillmentMethod, deliverySettings }) {
+  if (!deliverySettings) {
+    return null;
+  }
+
+  if (fulfillmentMethod === "delivery") {
+    const minutes = Number(deliverySettings.estimated_delivery_time_min);
+
+    if (!Number.isInteger(minutes) || minutes <= 0) {
+      return null;
+    }
+
+    return `environ ${minutes} min`;
+  }
+
+  const minutes = Number(deliverySettings.estimated_pickup_time_min);
+
+  if (!Number.isInteger(minutes) || minutes <= 0) {
+    return null;
+  }
+
+  return `environ ${minutes} min`;
+}
+
 async function getOrderEmailPayload({ client, orderId }) {
-  const orderResult = await client.query(
-    `
-      SELECT
-        id,
-        order_number,
-        fulfillment_method,
-        customer_name,
-        customer_phone,
-        customer_email,
-        delivery_address_line1,
-        delivery_postal_code,
-        delivery_city,
-        customer_note,
-        subtotal_cents,
-        delivery_fee_cents,
-        total_cents,
-        currency,
-        created_at,
-        public_tracking_token
-      FROM orders
-      WHERE id = $1
-      LIMIT 1
-    `,
-    [orderId]
-  );
+  const [orderResult, itemsResult, deliverySettingsResult] = await Promise.all([
+    client.query(
+      `
+        SELECT
+          id,
+          order_number,
+          fulfillment_method,
+          customer_name,
+          customer_phone,
+          customer_email,
+          delivery_address_line1,
+          delivery_postal_code,
+          delivery_city,
+          customer_note,
+          subtotal_cents,
+          delivery_fee_cents,
+          total_cents,
+          currency,
+          created_at,
+          public_tracking_token
+        FROM orders
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [orderId]
+    ),
+    client.query(
+      `
+        SELECT
+          line_number,
+          item_type,
+          product_name_snapshot,
+          variant_name_snapshot,
+          beverage_name_snapshot,
+          unit_price_cents,
+          quantity,
+          line_total_cents
+        FROM order_items
+        WHERE order_id = $1
+        ORDER BY line_number ASC
+      `,
+      [orderId]
+    ),
+    client.query(
+      `
+        SELECT
+          estimated_delivery_time_min,
+          estimated_pickup_time_min,
+          rush_mode_enabled
+        FROM delivery_settings
+        WHERE singleton = TRUE
+        LIMIT 1
+      `
+    ),
+  ]);
 
   if (orderResult.rowCount === 0) {
     throw new Error(`Order ${orderId} not found for email payload.`);
   }
 
-  const itemsResult = await client.query(
-    `
-      SELECT
-        line_number,
-        item_type,
-        product_name_snapshot,
-        variant_name_snapshot,
-        beverage_name_snapshot,
-        unit_price_cents,
-        quantity,
-        line_total_cents
-      FROM order_items
-      WHERE order_id = $1
-      ORDER BY line_number ASC
-    `,
-    [orderId]
-  );
-
   return {
     order: orderResult.rows[0],
     items: itemsResult.rows,
+    deliverySettings: deliverySettingsResult.rows[0] || null,
   };
 }
 
@@ -680,11 +717,18 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function buildOrderConfirmationEmailHtml({ order, items }) {
+function buildOrderConfirmationEmailHtml({ order, items, deliverySettings }) {
   const modeLabel =
     order.fulfillment_method === "delivery" ? "Livraison" : "Retrait";
 
   const trackingUrl = `${env.appBaseUrl}/suivi/${encodeURIComponent(order.public_tracking_token)}`;
+  const estimatedTimeLabel = buildEstimatedTimeLabel({
+    fulfillmentMethod: order.fulfillment_method,
+    deliverySettings,
+  });
+  const rushMessage = deliverySettings?.rush_mode_enabled
+    ? "Nous faisons face à une forte affluence en ce moment. Votre commande pourrait prendre un peu plus de temps que d’habitude. Merci pour votre patience."
+    : null;
 
   const itemsHtml = items
     .map((item) => {
@@ -734,7 +778,8 @@ function buildOrderConfirmationEmailHtml({ order, items }) {
       <p style="margin:0 0 8px 0;"><strong>Mode :</strong> ${escapeHtml(modeLabel)}</p>
       <p style="margin:0 0 8px 0;"><strong>Nom :</strong> ${escapeHtml(order.customer_name)}</p>
       <p style="margin:0 0 8px 0;"><strong>Téléphone :</strong> ${escapeHtml(order.customer_phone)}</p>
-      <p style="margin:0 0 16px 0;"><strong>Email :</strong> ${escapeHtml(order.customer_email)}</p>
+      ${estimatedTimeLabel ? `<p style="margin:0 0 8px 0;"><strong>Temps estimé :</strong> ${escapeHtml(estimatedTimeLabel)}</p>` : ""}
+      ${rushMessage ? `<p style="margin:0 0 16px 0; color:#8a5a00;"><strong>Info affluence :</strong> ${escapeHtml(rushMessage)}</p>` : ""}
 
       ${addressHtml}
       ${noteHtml}
@@ -785,7 +830,7 @@ function buildOrderConfirmationEmailHtml({ order, items }) {
   `;
 }
 
-function buildOrderConfirmationEmailText({ order, items }) {
+function buildOrderConfirmationEmailText({ order, items, deliverySettings }) {
   const modeLabel =
     order.fulfillment_method === "delivery" ? "Livraison" : "Retrait";
 
@@ -809,6 +854,8 @@ function buildOrderConfirmationEmailText({ order, items }) {
     `Nom : ${order.customer_name}`,
     `Téléphone : ${order.customer_phone}`,
     `Email : ${order.customer_email}`,
+    estimatedTimeLabel ? `Temps estimé : ${estimatedTimeLabel}` : null,
+    rushMessage ? `Info affluence : ${rushMessage}` : null,
     order.fulfillment_method === "delivery"
       ? `Adresse : ${order.delivery_address_line1 || ""}, ${order.delivery_postal_code || ""} ${order.delivery_city || ""}`
       : null,
@@ -843,6 +890,13 @@ async function sendOrderPaidConfirmationEmail({ client, orderId }) {
 
 function buildTrackingRecoveryEmailHtml({ order }) {
   const trackingUrl = `${env.appBaseUrl}/suivi/${encodeURIComponent(order.public_tracking_token)}`;
+  const estimatedTimeLabel = buildEstimatedTimeLabel({
+    fulfillmentMethod: order.fulfillment_method,
+    deliverySettings,
+  });
+  const rushMessage = deliverySettings?.rush_mode_enabled
+    ? "Nous faisons face à une forte affluence en ce moment. Votre commande pourrait prendre un peu plus de temps que d’habitude. Merci pour votre patience."
+    : null;
   const modeLabel =
     order.fulfillment_method === "delivery" ? "Livraison" : "Retrait";
 
