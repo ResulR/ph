@@ -16,6 +16,8 @@ const { adminSettingsRouter } = require("./routes/adminSettings");
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(cors({
   origin: env.appBaseUrl,
   credentials: true,

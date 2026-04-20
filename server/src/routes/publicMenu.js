@@ -89,7 +89,10 @@ router.get("/menu", async (_req, res) => {
           pickup_enabled,
           delivery_fee_cents,
           minimum_order_cents,
-          delivery_zone_label
+          delivery_zone_label,
+          estimated_delivery_time_min,
+          estimated_pickup_time_min,
+          rush_mode_enabled
         FROM delivery_settings
         LIMIT 1
       `),
@@ -205,6 +208,9 @@ router.get("/menu", async (_req, res) => {
               deliveryFeeCents: deliverySettingsRow.delivery_fee_cents,
               minimumOrderCents: deliverySettingsRow.minimum_order_cents,
               deliveryZoneLabel: deliverySettingsRow.delivery_zone_label,
+              estimatedDeliveryTimeMin: deliverySettingsRow.estimated_delivery_time_min,
+              estimatedPickupTimeMin: deliverySettingsRow.estimated_pickup_time_min,
+              rushModeEnabled: deliverySettingsRow.rush_mode_enabled,
             }
           : null,
         openingHours,

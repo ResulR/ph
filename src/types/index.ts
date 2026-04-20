@@ -172,6 +172,9 @@ export interface DeliverySettings {
   minimumOrder: number;
   zone: string; // "Bruxelles" for V1
   pickupEnabled: boolean;
+  estimatedDeliveryTime: number;
+  estimatedPickupTime: number;
+  rushModeEnabled: boolean;
 }
 
 // ===== CONFIG SITE =====
