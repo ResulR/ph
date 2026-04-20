@@ -5,6 +5,7 @@ const { pool } = require("../db/pool");
 const { env } = require("../config/env");
 const { getStripe } = require("../lib/stripe");
 const { sendEmail } = require("../lib/email");
+const { checkoutSessionRateLimit } = require("../middlewares/checkoutSessionRateLimit");
 
 const publicCheckoutRouter = express.Router();
 
@@ -1797,7 +1798,7 @@ publicCheckoutRouter.post("/checkout/validate", async (req, res) => {
   }
 });
 
-publicCheckoutRouter.post("/checkout/session", async (req, res) => {
+publicCheckoutRouter.post("/checkout/session", checkoutSessionRateLimit, async (req, res) => {
   const client = await pool.connect();
 
   try {
