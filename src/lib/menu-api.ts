@@ -79,25 +79,64 @@ export interface PublicMenuResponse {
   };
 }
 
-export async function fetchPublicMenu(): Promise<PublicMenuResponse["data"]> {
-  const response = await fetch("/api/public/menu", {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-  });
+const PUBLIC_MENU_CACHE_TTL_MS = 30_000;
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch public menu: ${response.status}`);
+let publicMenuCache: PublicMenuResponse["data"] | null = null;
+let publicMenuCacheExpiresAt = 0;
+let publicMenuRequestInFlight: Promise<PublicMenuResponse["data"]> | null = null;
+
+function isPublicMenuCacheValid(): boolean {
+  return publicMenuCache !== null && Date.now() < publicMenuCacheExpiresAt;
+}
+
+export function invalidatePublicMenuCache(): void {
+  publicMenuCache = null;
+  publicMenuCacheExpiresAt = 0;
+  publicMenuRequestInFlight = null;
+}
+
+export async function fetchPublicMenu(options?: {
+  forceRefresh?: boolean;
+}): Promise<PublicMenuResponse["data"]> {
+  const forceRefresh = options?.forceRefresh === true;
+
+  if (!forceRefresh && isPublicMenuCacheValid()) {
+    return publicMenuCache as PublicMenuResponse["data"];
   }
 
-  const json = (await response.json()) as PublicMenuResponse;
-
-  if (!json.ok || !json.data) {
-    throw new Error("Invalid public menu response");
+  if (!forceRefresh && publicMenuRequestInFlight) {
+    return publicMenuRequestInFlight;
   }
 
-  return json.data;
+  publicMenuRequestInFlight = (async () => {
+    const response = await fetch("/api/public/menu", {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch public menu: ${response.status}`);
+    }
+
+    const json = (await response.json()) as PublicMenuResponse;
+
+    if (!json.ok || !json.data) {
+      throw new Error("Invalid public menu response");
+    }
+
+    publicMenuCache = json.data;
+    publicMenuCacheExpiresAt = Date.now() + PUBLIC_MENU_CACHE_TTL_MS;
+
+    return json.data;
+  })();
+
+  try {
+    return await publicMenuRequestInFlight;
+  } finally {
+    publicMenuRequestInFlight = null;
+  }
 }
 
 export function formatPriceFromCents(priceCents: number): string {
